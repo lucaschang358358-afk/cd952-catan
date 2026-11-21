@@ -1,0 +1,11 @@
+[rom]
+title = "Catan Complete"
+short-title = "Catan"
+category = "APPLET_GAME"
+default-locale = "en"
+copyright = "CD952 Catan Complete (MIT)"
+version = "1.0.0"
+
+[metadata.en]
+title = "Catan Complete"
+short-title = "Catan"
