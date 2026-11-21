@@ -1,11 +1,11 @@
 [rom]
-title = "Catan Complete"
-short-title = "Catan"
+title = "Catan Deluxe"
+short-title = "Catan2"
 category = "APPLET_GAME"
 default-locale = "en"
-copyright = "CD952 Catan Complete (MIT)"
-version = "1.0.0"
+copyright = "CD952 Catan Deluxe v2 (MIT)"
+version = "2.0.0"
 
 [metadata.en]
-title = "Catan Complete"
-short-title = "Catan"
+title = "Catan Deluxe"
+short-title = "Catan2"

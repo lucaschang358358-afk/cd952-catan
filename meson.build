@@ -1,10 +1,9 @@
 project('cd952-catan', 'c',
-  version : '1.0.0',
+  version : '2.0.0',
   default_options : ['warning_level=2'])
 
 c = meson.get_compiler('c')
 mutekix_lib = c.find_library('mutekix', required : true)
-m_dep = c.find_library('m', required : false)
 elf2bestape = find_program('elf2bestape', required: false)
 romtool = find_program('romtool', required: false)
 py3 = find_program('python3', required: true)
@@ -17,7 +16,7 @@ touch_adapt_h = custom_target('muteki-touch-adapt',
 game_elf = executable('cd952-catan',
   [touch_adapt_h, 'ui_gfx.c', 'catan_map.c', 'catan_game.c', 'platform_muteki.c'],
   name_suffix: 'elf',
-  dependencies: [mutekix_lib, m_dep],
+  dependencies: mutekix_lib,
   install : false,
   c_args: ['-O3'],
   link_args: ['-Wl,--gc-sections'])

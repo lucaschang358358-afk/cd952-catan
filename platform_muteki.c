@@ -1,5 +1,6 @@
 /*
- * 無敵 CD-952 (Besta RTOS / Project Muteki) 卡坦島完整版 雙緩衝觸控平台
+ * 無敵 CD-952 (Besta RTOS / Project Muteki) 卡坦島豪華完整版 v2 平台
+ *  - 內建靜態精緻地圖快取 (g_map_cache)：手繪六角地形與海洋只畫一次，每幀單次 memcpy 還原，絕不卡頓！
  */
 
 #include <stdbool.h>
@@ -60,7 +61,7 @@
 #include "hal.h"
 #include "catan_game.h"
 
-#define MAX_TEXT_QUEUE 160
+#define MAX_TEXT_QUEUE 180
 
 typedef struct {
     int x, y, max_w;
@@ -72,6 +73,10 @@ static lcd_t *g_lcd = NULL;
 static int g_w = 800, g_h = 480, g_is_xrgb = 1;
 static void *g_backbuf = NULL;
 static size_t g_fb_bytes = 0;
+
+/* 靜態地圖快取 (只快取左側地圖區 w x h，省 RAM 又超高速!) */
+static void *g_map_cache = NULL;
+static int   g_map_cw = 0, g_map_ch = 0, g_map_valid = 0;
 
 static TextCmd g_text_q[MAX_TEXT_QUEUE];
 static int g_text_q_len = 0;
@@ -186,6 +191,45 @@ void hal_draw_line(int x0, int y0, int x1, int y1, uint32_t rgb) {
     }
 }
 
+int hal_save_map_cache(int w, int h) {
+    if (!g_backbuf || w <= 0 || h <= 0) return 0;
+    if (w > g_w) w = g_w;
+    if (h > g_h) h = g_h;
+    size_t bpp = g_is_xrgb ? 4u : 2u;
+    size_t need = (size_t)w * (size_t)h * bpp;
+    if (!g_map_cache || g_map_cw != w || g_map_ch != h) {
+        free(g_map_cache);
+        g_map_cache = malloc(need);
+        if (!g_map_cache) { g_map_valid = 0; return 0; }
+        g_map_cw = w; g_map_ch = h;
+    }
+    uint8_t *dst = (uint8_t *)g_map_cache;
+    const uint8_t *src = (const uint8_t *)g_backbuf;
+    size_t row_bytes = (size_t)w * bpp;
+    size_t fb_stride = (size_t)g_w * bpp;
+    for (int y = 0; y < h; y++) {
+        memcpy(dst + (size_t)y * row_bytes, src + (size_t)y * fb_stride, row_bytes);
+    }
+    g_map_valid = 1;
+    return 1;
+}
+
+int hal_restore_map_cache(void) {
+    if (!g_backbuf || !g_map_cache || !g_map_valid) return 0;
+    g_text_q_len = 0;
+    size_t bpp = g_is_xrgb ? 4u : 2u;
+    uint8_t *dst = (uint8_t *)g_backbuf;
+    const uint8_t *src = (const uint8_t *)g_map_cache;
+    size_t row_bytes = (size_t)g_map_cw * bpp;
+    size_t fb_stride = (size_t)g_w * bpp;
+    for (int y = 0; y < g_map_ch; y++) {
+        memcpy(dst + (size_t)y * fb_stride, src + (size_t)y * row_bytes, row_bytes);
+    }
+    return 1;
+}
+
+void hal_invalidate_map_cache(void) { g_map_valid = 0; }
+
 void hal_set_text_bg(uint32_t rgb) { g_text_bg = rgb; }
 
 void hal_draw_line_utf8(int x, int y, const char *utf8_text, int byte_len, int max_px_w, uint32_t rgb) {
@@ -264,7 +308,7 @@ void hal_present(void) {
 }
 
 uint32_t hal_get_seed(void) { return (uint32_t)time(NULL) ^ 0xCAFE55AAu; }
-const char *hal_get_save_path(void) { return "C:\\cd952_catan.sav"; }
+const char *hal_get_save_path(void) { return "C:\\cd952_catan_v2.sav"; }
 void hal_request_quit(void) { g_running = 0; }
 
 static CatanKey map_key(short code) {
@@ -282,6 +326,9 @@ static CatanKey map_key(short code) {
         case 52: case 68: case 100: return CKEY_BUYDEV;
         case 53: case 84: case 116: return CKEY_TRADE;
         case 54: case 80: case 112: return CKEY_PLAYDEV;
+        case 55: case 71: case 103: return CKEY_STATS;
+        case 56: case 76: case 108: return CKEY_LOG;
+        case 57: case 72: case 104: return CKEY_HELP;
         case 69: case 101:          return CKEY_ENDTURN;
         default: return CKEY_NONE;
     }
@@ -326,6 +373,7 @@ int main(void) {
     }
 
     catan_shutdown();
+    free(g_map_cache);
     free(g_backbuf);
     return 0;
 }
